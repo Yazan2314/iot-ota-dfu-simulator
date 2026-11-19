@@ -7,6 +7,10 @@ BATTERY_THRESHOLDS = {
 
 class Endpoint:
     def __init__(self, serial, hardware_type, node_uuid, battery, version, backlog=0):
+        if hardware_type not in BATTERY_THRESHOLDS:
+            raise ValueError(f"Unknown endpoint hardware type: {hardware_type}")
+        if backlog < 0:
+            raise ValueError("backlog cannot be negative")
         self._serial = serial
         self._hardware_type = hardware_type
         self._node_uuid = node_uuid
@@ -24,12 +28,12 @@ class Endpoint:
             return "backlog pending"
         threshold = BATTERY_THRESHOLDS[self._hardware_type]
         if self._battery < threshold:
-            return "Battery too low"
+            return "battery too low"
         
         return None
 
 
-    def try_update(self,new_version):
+    def try_update(self, new_version):
         reason = self.why_blocked()
         if reason is not None:
             return False, reason
@@ -41,7 +45,7 @@ class Endpoint:
         return {
             "serial_number": self._serial,
             "hardware_type": self._hardware_type,
-            "node_uuid": self._node_uuid,
+            "uuid": self._node_uuid,
             "battery": self._battery,
             "version": self._version,
             "backlog": self._backlog
