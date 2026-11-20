@@ -39,6 +39,12 @@ class AuguryAPI:
                 return node
         return None
 
+    def _node_has_endpoint_type(self, node_uuid, hardware_type):
+        for serial in self._nodes[node_uuid].to_dict()["endpoints"]:
+            if self._endpoints[serial].hardware_type == hardware_type:
+                return True
+        return False
+
     # ---------- setup helpers ----------
 
     def api_add_node(self, uuid, version):
@@ -61,6 +67,9 @@ class AuguryAPI:
         try:
             endpoint = Endpoint(serial, hardware_type, node_uuid, battery, version, backlog)
         except ValueError:
+            return BAD_REQUEST
+        # A node is paired with one endpoint of each type.
+        if self._node_has_endpoint_type(node_uuid, hardware_type):
             return BAD_REQUEST
         self._endpoints[serial] = endpoint
         self._nodes[node_uuid].add_endpoint(serial)   # keep the node's EP list in sync
@@ -111,11 +120,33 @@ class AuguryAPI:
         endpoint.drain_backlog()
         return OK
 
-    def api_trigger_dfu(self, serial, new_version):
-        # Explicit DFU request. 400 = blocked (backlog or low battery),
-        # version unchanged.
+    def api_add_samples(self, serial, count):
+        # New measurements arrive -> backlog grows. 400 = invalid count.
         endpoint = self._get_endpoint(serial)
-        ok, reason = endpoint.try_update(new_version)
+        try:
+            endpoint.add_samples(count)
+        except ValueError:
+            return BAD_REQUEST
+        return OK
+
+    def api_set_battery(self, serial, battery):
+        # Battery charges or drains. 400 = invalid value.
+        endpoint = self._get_endpoint(serial)
+        try:
+            endpoint.set_battery(battery)
+        except ValueError:
+            return BAD_REQUEST
+        return OK
+
+    def api_trigger_dfu(self, serial, new_version):
+        # Explicit DFU request. 400 = refused (backlog, low battery, version
+        # not newer or invalid). The version stays the same and the reason is
+        # in the endpoint's last_error.
+        endpoint = self._get_endpoint(serial)
+        try:
+            ok, reason = endpoint.try_update(new_version)
+        except ValueError:
+            return BAD_REQUEST
         if not ok:
             return BAD_REQUEST
         return OK

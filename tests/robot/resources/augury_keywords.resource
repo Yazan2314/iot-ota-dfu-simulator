@@ -41,6 +41,12 @@ Artifact Is Posted To Node
     ${code}=    Api Post Version To Ota Channel    ${channel}    ${artifact}
     Should Be Equal As Integers    ${code}    200
 
+Artifact Is Cleared From Node
+    [Arguments]    ${uuid}    ${artifact}
+    ${channel}=    OTA Channel Of Node    ${uuid}
+    ${code}=    Api Clear Ota Channel    ${channel}    ${artifact}
+    Should Be Equal As Integers    ${code}    200
+
 Posting Artifact To Node Should Be Rejected
     [Arguments]    ${uuid}    ${artifact}
     ${channel}=    OTA Channel Of Node    ${uuid}
@@ -105,4 +111,32 @@ Endpoint Backlog Should Be
 Endpoint Version Should Be
     [Arguments]    ${serial}    ${expected}
     ${ep}=    Api Get Endpoint By Serial    ${serial}
-    Should Be Equal As Strings    ${ep}[version]    ${expected}
+    Should Be Equal As Integers    ${ep}[version]    ${expected}
+
+Endpoint Should Report Error
+    [Arguments]    ${serial}    ${text}
+    ${ep}=    Api Get Endpoint By Serial    ${serial}
+    Should Contain    ${ep}[last_error]    ${text}
+
+New Samples Arrive
+    [Arguments]    ${serial}    ${count}
+    ${code}=    Api Add Samples    ${serial}    ${{int($count)}}
+    Should Be Equal As Integers    ${code}    200
+
+Battery Is Set To
+    [Arguments]    ${serial}    ${battery}
+    ${code}=    Api Set Battery    ${serial}    ${{int($battery)}}
+    Should Be Equal As Integers    ${code}    200
+
+# ---------- input validation ----------
+
+Adding Node Should Be Rejected
+    [Arguments]    ${uuid}    ${version}=1
+    ${code}=    Api Add Node    ${uuid}    ${version}
+    Should Be Equal As Integers    ${code}    400
+
+Adding Endpoint Should Be Rejected
+    [Documentation]    Values are passed as given (no conversion), so bad types can be tested.
+    [Arguments]    ${serial}    ${hardware_type}    ${uuid}    ${battery}    ${version}    ${backlog}=${0}
+    ${code}=    Api Add Endpoint    ${serial}    ${hardware_type}    ${uuid}    ${battery}    ${version}    ${backlog}
+    Should Be Equal As Integers    ${code}    400

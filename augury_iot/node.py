@@ -11,9 +11,18 @@ POLLS_TO_INSTALL = 2
 
 
 def hardware_type_from_uuid(uuid):
-    # "MOXA_TBCDB1045001" -> "moxa" (lowercase so matching ignores case)
-    parts = uuid.split("_")
+    # "MOXA_TBCDB1045001" -> "moxa". Raises ValueError if the UUID is invalid.
+    # Split only at the first "_", so the string part may contain "_" too.
+    if not isinstance(uuid, str):
+        raise ValueError("UUID must be a string")
+
+    parts = uuid.split("_", 1)
+    if len(parts) != 2 or not parts[0] or not parts[1]:
+        raise ValueError(f"Invalid UUID: {uuid}")
+
     hardware_type = parts[0].lower()
+    if hardware_type not in API_HOSTS:
+        raise ValueError(f"Unknown hardware type in UUID: {uuid}")
     return hardware_type
 
 
@@ -37,8 +46,6 @@ def parse_artifact(artifact):
 class Node:
     def __init__(self, uuid, version):
         hardware_type = hardware_type_from_uuid(uuid)
-        if hardware_type not in API_HOSTS:
-            raise ValueError(f"Unknown node hardware type in UUID: {uuid}")
         self._uuid = uuid
         self._version = int(version)
         self._hardware_type = hardware_type
@@ -62,6 +69,7 @@ class Node:
         # A newer post replaces whatever was waiting, and the download restarts.
         self._pending_artifact = artifact
         self._polls_waited = 0
+        self._last_error = ""            # a new artifact clears the old error
         return True, "artifact queued"
 
     def clear_artifact(self, artifact):

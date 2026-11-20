@@ -32,6 +32,7 @@ tests/robot/
   ota_happy_flow.robot                 TC1: OTA happy flow
   endpoint_dfu.robot                   TC2: Endpoint DFU with backlog and battery
   bad_firmware_ota.robot               TC3: Bad firmware OTA
+  input_validation.robot               invalid or duplicate setup input
 ```
 
 ## Design
@@ -48,7 +49,9 @@ The system has three layers: **Robot suites → keyword resource → `AuguryAPI`
 
 **Artifact validation.** A malformed artifact name is rejected at post time with 400. An artifact for a different hardware type is accepted at post time and rejected by the node at install time: the version stays unchanged and the error is reported in `last_error`, returned by `api_get_node_by_uuid`.
 
-**DFU gating.** `api_trigger_dfu` returns 400 and leaves the version unchanged while the backlog is above 0 or the battery is below the threshold for the endpoint type (EP1/EP2: 2500, Canary_A: 3600). The backlog is drained with an explicit call to `api_drain_backlog`.
+**DFU gating.** `api_trigger_dfu` returns 400 and leaves the version unchanged while the backlog is above 0, the battery is below the threshold for the endpoint type (EP1/EP2: 2500, Canary_A: 3600), or the requested version is not newer than the current one. The reason is reported in the endpoint's `last_error`. The backlog is drained with an explicit call to `api_drain_backlog`.
+
+**Input validation.** Invalid UUIDs, unknown hardware types, negative or non-numeric battery and backlog values, duplicate UUIDs or serials, and a second endpoint of the same type on one node are all rejected with 400.
 
 ## API helpers
 
@@ -61,7 +64,9 @@ In addition to the four required functions, the following helpers are available 
 | `api_add_endpoint(serial, type, node_uuid, battery, version, backlog)` | Creates an endpoint and pairs it with its node |
 | `api_poll_node(uuid)` | Performs one OTA poll |
 | `api_drain_backlog(serial)` | Sets the endpoint backlog to 0 |
-| `api_trigger_dfu(serial, version)` | Attempts a DFU (200 = updated, 400 = blocked) |
+| `api_add_samples(serial, count)` | Adds new samples to the endpoint backlog |
+| `api_set_battery(serial, battery)` | Sets the endpoint battery level |
+| `api_trigger_dfu(serial, version)` | Attempts a DFU (200 = updated, 400 = refused) |
 
 ## Assumptions
 
@@ -70,3 +75,7 @@ In addition to the four required functions, the following helpers are available 
 - DFU runs only when explicitly triggered, not automatically when the backlog reaches 0.
 - A battery level exactly at the threshold allows DFU.
 - A new artifact replaces one that is still pending in the channel.
+- A node can be paired with at most one endpoint of each type.
+- A DFU to the same or an older endpoint version is refused, the same as for OTA.
+- Endpoint hardware types are case-sensitive (`EP1`, `EP2`, `Canary_A`); node types in UUIDs are not.
+- Battery values may be fractional; backlog is a whole number of samples.
