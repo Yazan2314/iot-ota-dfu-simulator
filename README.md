@@ -75,7 +75,7 @@ In addition to the four required functions, the following helpers are available 
 - DFU runs only when explicitly triggered, not automatically when the backlog reaches 0.
 - A battery level exactly at the threshold allows DFU.
 - A new artifact replaces one that is still pending in the channel.
-- A node can be paired with at most one endpoint of each type.
 - A DFU to the same or an older endpoint version is refused, the same as for OTA.
 - Endpoint hardware types are case-sensitive (`EP1`, `EP2`, `Canary_A`); node types in UUIDs are not.
 - Battery values may be fractional; backlog is a whole number of samples.
+- Endpoint versions can be whole numbers or dotted (`2`, `1.0`, `2.1.4`) and are compared part by part as numbers, so `1.10` is newer than `1.9` and `1.0` equals `1`. Node versions stay whole numbers, matching the `<hardware_type>_<version>.swu` artifact format.

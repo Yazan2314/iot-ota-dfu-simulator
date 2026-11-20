@@ -49,6 +49,19 @@ Same Or Older Endpoint Version Is Rejected
     DFU Should Be Blocked    EP2-001    0
     Endpoint Version Should Be    EP2-001    1
 
+Dotted Endpoint Versions Are Compared As Numbers
+    [Documentation]    1.10 is newer than 1.9, and 1.10.0 is the same as 1.10.
+    DFU Should Succeed    EP2-001    1.9
+    DFU Should Succeed    EP2-001    1.10
+    DFU Should Be Blocked    EP2-001    1.10.0
+    Endpoint Version Should Be    EP2-001    1.10
+    Endpoint Should Report Error    EP2-001    version not newer
+
+Invalid Endpoint Version Is Rejected
+    DFU Should Be Blocked    EP2-001    abc
+    DFU Should Be Blocked    EP2-001    1..2
+    Endpoint Version Should Be    EP2-001    1
+
 
 *** Keywords ***
 Setup Node With Endpoints

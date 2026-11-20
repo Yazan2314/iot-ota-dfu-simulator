@@ -1,3 +1,5 @@
+import re
+
 # Minimum battery needed before an endpoint is allowed to run a DFU.
 BATTERY_THRESHOLDS = {
     "EP1": 2500,
@@ -15,13 +17,24 @@ def _is_count(value):
     return isinstance(value, int) and not isinstance(value, bool)
 
 
+VERSION_PATTERN = re.compile(r"\d+(\.\d+)*")
+
+
 def parse_version(value):
-    # Versions are whole numbers. Accept 3 or "3" (Robot passes text).
+    # Endpoint versions: 3, "3", "1.0", "2.1.4".
+    # Returns (text, key): text is what the API shows, key is used to compare.
     if _is_count(value) and value >= 0:
-        return value
-    if isinstance(value, str) and value.isdigit():
-        return int(value)
-    raise ValueError(f"Invalid version: {value}")
+        text = str(value)
+    elif isinstance(value, str) and VERSION_PATTERN.fullmatch(value):
+        text = value
+    else:
+        raise ValueError(f"Invalid version: {value}")
+    # Compare part by part as numbers, so "1.10" > "1.9".
+    # Trailing zeros don't count, so "1.0" == "1".
+    key = [int(part) for part in text.split(".")]
+    while len(key) > 1 and key[-1] == 0:
+        key.pop()
+    return text, tuple(key)
 
 
 class Endpoint:
@@ -38,7 +51,7 @@ class Endpoint:
         self._hardware_type = hardware_type
         self._node_uuid = node_uuid          # the node this endpoint is paired with
         self._battery = battery              # can be fractional, e.g. 3000.5
-        self._version = parse_version(version)
+        self._version, self._version_key = parse_version(version)
         self._backlog = backlog              # samples not uploaded yet (whole number)
         self._last_error = ""                # why the last DFU was refused
 
@@ -84,18 +97,18 @@ class Endpoint:
     def try_update(self, new_version):
         # The only way to change the version: refused -> nothing changes,
         # and the reason is kept in last_error.
-        new_version = parse_version(new_version)
+        new_text, new_key = parse_version(new_version)
         # Same rule as the Node: only move to a newer version.
-        if new_version <= self._version:
-            reason = f"version not newer: {new_version} vs current {self._version}"
+        if new_key <= self._version_key:
+            reason = f"version not newer: {new_text} vs current {self._version}"
         else:
             reason = self.why_blocked()
         if reason is not None:
             self._last_error = reason
             return False, reason
-        self._version = new_version
+        self._version, self._version_key = new_text, new_key
         self._last_error = ""
-        return True, f"updated to {new_version}"
+        return True, f"updated to {new_text}"
 
     def to_dict(self):
         # Same field names as the API shape in the assignment, plus last_error.
@@ -122,3 +135,7 @@ if __name__ == "__main__":
     print(weak.try_update(2))    # False: battery too low (3500 < 3600)
     weak.set_battery(3600)
     print(weak.try_update(2))    # True after charging
+
+    dotted = Endpoint("EP2-001", "EP2", "MOXA_123", battery=3000, version="1.9")
+    print(dotted.try_update("1.10"))     # True: 1.10 is newer than 1.9
+    print(dotted.try_update("1.10.0"))   # False: same version
