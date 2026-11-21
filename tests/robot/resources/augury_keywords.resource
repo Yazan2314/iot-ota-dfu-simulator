@@ -19,7 +19,7 @@ Reset System
 
 A Node At Version
     [Arguments]    ${uuid}    ${version}
-    ${code}=    Api Add Node    ${uuid}    ${version}
+    ${code}=    Api Init Node    ${uuid}    ${version}
     Should Be Equal As Integers    ${code}    200
 
 An Endpoint Paired With Node
@@ -132,7 +132,7 @@ Battery Is Set To
 
 Adding Node Should Be Rejected
     [Arguments]    ${uuid}    ${version}=1
-    ${code}=    Api Add Node    ${uuid}    ${version}
+    ${code}=    Api Init Node    ${uuid}    ${version}
     Should Be Equal As Integers    ${code}    400
 
 Adding Endpoint Should Be Rejected

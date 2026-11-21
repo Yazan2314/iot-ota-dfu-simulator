@@ -10,7 +10,7 @@ API_HOSTS = {
 POLLS_TO_INSTALL = 2
 
 
-def hardware_type_from_uuid(uuid):
+def hardware_type_from_uuid(uuid: str) -> str:
     # "MOXA_TBCDB1045001" -> "moxa". Raises ValueError if the UUID is invalid.
     # Split only at the first "_", so the string part may contain "_" too.
     if not isinstance(uuid, str):
@@ -26,7 +26,7 @@ def hardware_type_from_uuid(uuid):
     return hardware_type
 
 
-def parse_artifact(artifact):
+def parse_artifact(artifact: str) -> tuple[str, int] | None:
     # "moxa_34.swu" -> ("moxa", 34)
     # None if the name doesn't follow <hardware_type>_<version>.swu
     if not artifact.endswith(".swu"):
@@ -44,7 +44,7 @@ def parse_artifact(artifact):
 
 
 class Node:
-    def __init__(self, uuid, version):
+    def __init__(self, uuid: str, version: int | str) -> None:
         hardware_type = hardware_type_from_uuid(uuid)
         self._uuid = uuid
         self._version = int(version)
@@ -56,11 +56,11 @@ class Node:
         self._polls_waited = 0           # polls since the artifact arrived
         self._last_error = ""            # reason of the last failed OTA
 
-    def add_endpoint(self, serial):
+    def add_endpoint(self, serial: str) -> None:
         if serial not in self._endpoints:
             self._endpoints.append(serial)
 
-    def receive_artifact(self, artifact):
+    def receive_artifact(self, artifact: str) -> tuple[bool, str]:
         # Cloud posted an artifact to this node's channel.
         # Only the name format is checked here; the hardware type is checked
         # by the node itself at install time (see poll), like a real device.
@@ -72,7 +72,7 @@ class Node:
         self._last_error = ""            # a new artifact clears the old error
         return True, "artifact queued"
 
-    def clear_artifact(self, artifact):
+    def clear_artifact(self, artifact: str) -> tuple[bool, str]:
         if parse_artifact(artifact) is None:
             return False, f"invalid artifact name: {artifact}"
         if self._pending_artifact != artifact:
@@ -81,7 +81,7 @@ class Node:
         self._polls_waited = 0
         return True, "artifact cleared"
 
-    def poll(self):
+    def poll(self) -> tuple[bool, str]:
         # One check of the OTA channel. The test calls this in its retry loop.
         if self._pending_artifact is None:
             return False, "no artifact pending"
@@ -112,7 +112,7 @@ class Node:
         self._last_error = ""            # a successful OTA clears the old error
         return True, f"updated to {version}"
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
         # Matches the API shape in the assignment, plus a few extra fields.
         return {
             "uuid": self._uuid,

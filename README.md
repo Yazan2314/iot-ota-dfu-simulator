@@ -60,7 +60,7 @@ In addition to the four required functions, the following helpers are available 
 | Helper | Description |
 |---|---|
 | `api_reset()` | Clears all state; runs before each test |
-| `api_add_node(uuid, version)` | Creates a node |
+| `api_init_node(uuid, version)` | Creates a node |
 | `api_add_endpoint(serial, type, node_uuid, battery, version, backlog)` | Creates an endpoint and pairs it with its node |
 | `api_poll_node(uuid)` | Performs one OTA poll |
 | `api_drain_backlog(serial)` | Sets the endpoint backlog to 0 |

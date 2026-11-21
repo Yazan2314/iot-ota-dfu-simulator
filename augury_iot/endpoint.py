@@ -8,19 +8,19 @@ BATTERY_THRESHOLDS = {
 }
 
 
-def _is_number(value):
+def _is_number(value: object) -> bool:
     # bool is a subclass of int in Python, so exclude it explicitly.
     return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
-def _is_count(value):
+def _is_count(value: object) -> bool:
     return isinstance(value, int) and not isinstance(value, bool)
 
 
 VERSION_PATTERN = re.compile(r"\d+(\.\d+)*")
 
 
-def parse_version(value):
+def parse_version(value: int | str) -> tuple[str, tuple[int, ...]]:
     # Endpoint versions: 3, "3", "1.0", "2.1.4".
     # Returns (text, key): text is what the API shows, key is used to compare.
     if _is_count(value) and value >= 0:
@@ -38,7 +38,15 @@ def parse_version(value):
 
 
 class Endpoint:
-    def __init__(self, serial, hardware_type, node_uuid, battery, version, backlog=0):
+    def __init__(
+        self,
+        serial: str,
+        hardware_type: str,
+        node_uuid: str,
+        battery: float,
+        version: int | str,
+        backlog: int = 0,
+    ) -> None:
         # Fail early on bad input instead of letting it slip into the DFU rules later.
         # Type checks come before comparisons, so bad types raise ValueError
         # (which the API turns into 400) instead of a TypeError.
@@ -56,34 +64,34 @@ class Endpoint:
         self._last_error = ""                # why the last DFU was refused
 
     @staticmethod
-    def _check_battery(battery):
+    def _check_battery(battery: float) -> None:
         if not _is_number(battery) or battery < 0:
             raise ValueError(f"Invalid battery level: {battery}")
 
     @staticmethod
-    def _check_backlog(backlog):
+    def _check_backlog(backlog: int) -> None:
         if not _is_count(backlog) or backlog < 0:
             raise ValueError(f"Invalid backlog: {backlog}")
 
     @property
-    def hardware_type(self):
+    def hardware_type(self) -> str:
         return self._hardware_type
 
-    def drain_backlog(self):
+    def drain_backlog(self) -> None:
         # Simulates the endpoint uploading all pending samples.
         self._backlog = 0
 
-    def add_samples(self, count):
+    def add_samples(self, count: int) -> None:
         # New measurements waiting to be uploaded.
         self._check_backlog(count)
         self._backlog += count
 
-    def set_battery(self, battery):
+    def set_battery(self, battery: float) -> None:
         # Simulates the battery charging or draining.
         self._check_battery(battery)
         self._battery = battery
 
-    def why_blocked(self):
+    def why_blocked(self) -> str | None:
         # All DFU gating rules live here. Returns the reason DFU can't run, or None.
         # Pending samples would be lost if the endpoint restarts for an update.
         if self._backlog > 0:
@@ -94,7 +102,7 @@ class Endpoint:
             return "battery too low"
         return None
 
-    def try_update(self, new_version):
+    def try_update(self, new_version: int | str) -> tuple[bool, str]:
         # The only way to change the version: refused -> nothing changes,
         # and the reason is kept in last_error.
         new_text, new_key = parse_version(new_version)
@@ -110,7 +118,7 @@ class Endpoint:
         self._last_error = ""
         return True, f"updated to {new_text}"
 
-    def to_dict(self):
+    def to_dict(self) -> dict:
         # Same field names as the API shape in the assignment, plus last_error.
         return {
             "serial_number": self._serial,

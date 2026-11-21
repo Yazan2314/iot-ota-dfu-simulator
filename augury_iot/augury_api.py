@@ -10,11 +10,11 @@ BAD_REQUEST = 400
 # It holds no domain rules itself: it finds the device, calls it, and turns
 # the result into 200/400.
 class AuguryAPI:
-    def __init__(self):
+    def __init__(self) -> None:
         self._nodes = {}        # uuid -> Node
         self._endpoints = {}    # serial -> Endpoint
 
-    def api_reset(self):
+    def api_reset(self) -> None:
         # Clean state between tests.
         self._nodes = {}
         self._endpoints = {}
@@ -22,24 +22,24 @@ class AuguryAPI:
     # ---------- private helpers ----------
 
     # Asking for a device that doesn't exist is a test bug, so fail loudly.
-    def _get_node(self, uuid):
+    def _get_node(self, uuid: str) -> Node:
         if uuid not in self._nodes:
             raise KeyError(f"Node with UUID {uuid} not found")
         return self._nodes[uuid]
 
-    def _get_endpoint(self, serial):
+    def _get_endpoint(self, serial: str) -> Endpoint:
         if serial not in self._endpoints:
             raise KeyError(f"Endpoint with serial {serial} not found")
         return self._endpoints[serial]
 
-    def _find_node_by_channel(self, ota_channel):
+    def _find_node_by_channel(self, ota_channel: str) -> Node | None:
         # Post/clear get a channel name ("OTA_<uuid>"), not a uuid.
         for node in self._nodes.values():
             if node.to_dict()["ota_channel"] == ota_channel:
                 return node
         return None
 
-    def _node_has_endpoint_type(self, node_uuid, hardware_type):
+    def _node_has_endpoint_type(self, node_uuid: str, hardware_type: str) -> bool:
         for serial in self._nodes[node_uuid].to_dict()["endpoints"]:
             if self._endpoints[serial].hardware_type == hardware_type:
                 return True
@@ -47,7 +47,7 @@ class AuguryAPI:
 
     # ---------- setup helpers ----------
 
-    def api_add_node(self, uuid, version):
+    def api_init_node(self, uuid: str, version: int | str) -> int:
         # UUIDs are unique: a second add is rejected, not replaced.
         if uuid in self._nodes:
             return BAD_REQUEST
@@ -58,7 +58,15 @@ class AuguryAPI:
         self._nodes[uuid] = node
         return OK
 
-    def api_add_endpoint(self, serial, hardware_type, node_uuid, battery, version, backlog=0):
+    def api_add_endpoint(
+        self,
+        serial: str,
+        hardware_type: str,
+        node_uuid: str,
+        battery: float,
+        version: int | str,
+        backlog: int = 0,
+    ) -> int:
         # Serials are unique, and an endpoint must belong to an existing node.
         if serial in self._endpoints:
             return BAD_REQUEST
@@ -77,15 +85,15 @@ class AuguryAPI:
 
     # ---------- required by the assignment ----------
 
-    def api_get_node_by_uuid(self, uuid):
+    def api_get_node_by_uuid(self, uuid: str) -> dict:
         node = self._get_node(uuid)
         return node.to_dict()
 
-    def api_get_endpoint_by_serial(self, serial):
-        endpoint = self._get_endpoint(serial)
+    def api_get_endpoint_by_serial(self, serial_number: str) -> dict:
+        endpoint = self._get_endpoint(serial_number)
         return endpoint.to_dict()
 
-    def api_post_version_to_ota_channel(self, ota_channel, version_artifact):
+    def api_post_version_to_ota_channel(self, ota_channel: str, version_artifact: str) -> int:
         # 400 = unknown channel or malformed name. A wrong-hardware artifact
         # still gets 200 here; the node rejects it when it installs.
         node = self._find_node_by_channel(ota_channel)
@@ -96,7 +104,7 @@ class AuguryAPI:
             return BAD_REQUEST
         return OK
 
-    def api_clear_ota_channel(self, ota_channel, version_artifact):
+    def api_clear_ota_channel(self, ota_channel: str, version_artifact: str) -> int:
         node = self._find_node_by_channel(ota_channel)
         if node is None:
             return BAD_REQUEST
@@ -107,20 +115,20 @@ class AuguryAPI:
 
     # ---------- test helpers ----------
 
-    def api_poll_node(self, uuid):
+    def api_poll_node(self, uuid: str) -> dict:
         # One OTA poll. Tests call this in a retry loop until the version
         # changes or retries run out. Returns the node state after the poll.
         node = self._get_node(uuid)
         node.poll()
         return node.to_dict()
 
-    def api_drain_backlog(self, serial):
+    def api_drain_backlog(self, serial: str) -> int:
         # Endpoint uploads all pending samples -> backlog 0.
         endpoint = self._get_endpoint(serial)
         endpoint.drain_backlog()
         return OK
 
-    def api_add_samples(self, serial, count):
+    def api_add_samples(self, serial: str, count: int) -> int:
         # New measurements arrive -> backlog grows. 400 = invalid count.
         endpoint = self._get_endpoint(serial)
         try:
@@ -129,7 +137,7 @@ class AuguryAPI:
             return BAD_REQUEST
         return OK
 
-    def api_set_battery(self, serial, battery):
+    def api_set_battery(self, serial: str, battery: float) -> int:
         # Battery charges or drains. 400 = invalid value.
         endpoint = self._get_endpoint(serial)
         try:
@@ -138,7 +146,7 @@ class AuguryAPI:
             return BAD_REQUEST
         return OK
 
-    def api_trigger_dfu(self, serial, new_version):
+    def api_trigger_dfu(self, serial: str, new_version: int | str) -> int:
         # Explicit DFU request. 400 = refused (backlog, low battery, version
         # not newer or invalid). The version stays the same and the reason is
         # in the endpoint's last_error.
@@ -154,9 +162,9 @@ class AuguryAPI:
 
 if __name__ == "__main__":
     api = AuguryAPI()
-    print(api.api_add_node("MOXA_TBCDB1045001", 33))     # 200
-    print(api.api_add_node("MOXA_TBCDB1045001", 33))     # 400 duplicate
-    print(api.api_add_node("FOO_123", 1))                # 400 bad type
+    print(api.api_init_node("MOXA_TBCDB1045001", 33))     # 200
+    print(api.api_init_node("MOXA_TBCDB1045001", 33))     # 400 duplicate
+    print(api.api_init_node("FOO_123", 1))                # 400 bad type
 
     print(api.api_add_endpoint("EP1-001", "EP1", "MOXA_TBCDB1045001", 3000, 1, backlog=5))  # 200
     print(api.api_add_endpoint("EP1-001", "EP1", "MOXA_TBCDB1045001", 3000, 1))             # 400 duplicate
