@@ -111,7 +111,7 @@ Endpoint Backlog Should Be
 Endpoint Version Should Be
     [Arguments]    ${serial}    ${expected}
     ${ep}=    Api Get Endpoint By Serial    ${serial}
-    Should Be Equal As Strings    ${ep}[version]    ${expected}
+    Should Be Equal As Integers    ${ep}[version]    ${expected}
 
 Endpoint Should Report Error
     [Arguments]    ${serial}    ${text}
